@@ -1,13 +1,516 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bruh</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dating App</title>
+
+  <!-- Fonts: Playfair Display (headings) + Lato (body) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Lato:wght@300;400;700&display=swap" rel="stylesheet" />
+
+  <!-- All visual styles live in one place -->
+  <link rel="stylesheet" href="css/style.css" />
 </head>
+
 <body>
-    <h1>Папа-заголовок</h1>
-    <h2>Мама-заголовок</h2>
-    <h4>Синок-заголовок</h4>
+
+  <!--
+    ═══════════════════════════════════════════════
+    APP SHELL
+    The outer layout: topbar + sidebar + main area.
+    All "pages" are <section> elements inside #main.
+    Only one section is visible at a time (see app.js → router).
+    ═══════════════════════════════════════════════
+  -->
+  <div id="app">
+
+    <!-- ─── TOPBAR ──────────────────────────────────
+         Shows: app name on the left, current user on the right.
+         User data comes from: api.getCurrentUser() → ViewProfileDTO
+    ──────────────────────────────────────────────── -->
+    <header id="topbar">
+      <a class="logo" href="#browse">Inter<em>link</em></a>
+
+      <div id="topbar-user">
+        <!-- Populated by app.js after login -->
+        <span id="topbar-username" class="topbar-name">—</span>
+        <button id="btn-logout" class="btn-ghost btn-sm">Log out</button>
+        <button id="btn-theme" class="btn-ghost" title="Toggle theme">
+          <svg id="icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+          </svg>
+          <svg id="icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="5"></circle>
+            <line x1="12" y1="1" x2="12" y2="3"></line>
+            <line x1="12" y1="21" x2="12" y2="23"></line>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+            <line x1="1" y1="12" x2="3" y2="12"></line>
+            <line x1="21" y1="12" x2="23" y2="12"></line>
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- ─── SIDEBAR NAV ──────────────────────────────
+         Simple hash-based links. app.js reads window.location.hash
+         to decide which section to show.
+    ──────────────────────────────────────────────── -->
+    <nav id="sidebar">
+      <a href="#browse"       class="nav-link" data-page="browse">
+        <span class="nav-icon">◎</span> Browse
+      </a>
+      <a href="#my-profile" class="nav-link" data-page="my-profile">
+        <span class="nav-icon">◈</span> My Profile
+      </a>
+      <a href="#edit-profile" class="nav-link" data-page="edit-profile">
+        <span class="nav-icon">◇</span> Edit Profile
+      </a>
+      <a href="#invitations"  class="nav-link" data-page="invitations">
+        <span class="nav-icon">◉</span> Invitations
+        <!-- Unread badge — set by app.js when there are pending invitations -->
+        <span id="inv-badge" class="badge badge-accent" hidden></span>
+      </a>
+    </nav>
+
+    <!-- ─── MAIN CONTENT ─────────────────────────────
+         Each <section> is one "page".
+         Shown/hidden by app.js via the .page-active class.
+    ──────────────────────────────────────────────── -->
+    <main id="main">
+
+
+      <!-- ═══════════════════════════════════════════
+           PAGE: BROWSE
+           Lists all profiles as cards.
+
+           Data: api.getProfiles()  →  ViewProfileDTO[]
+           ViewProfileDTO fields used here:
+             id, name, age, gender, publicInfo.city,
+             publicInfo.photo, publicInfo.goal, keywords[]
+      ════════════════════════════════════════════ -->
+      <section id="page-browse" class="page">
+
+        <div class="page-header">
+          <div>
+            <h1>Browse <em>profiles</em></h1>
+            <p class="text-muted" style="margin-top: 4px; font-size: 13px;">Find connections based on your interests.</p>
+          </div>
+          <!-- Keyword filter — filters the already-loaded list client-side -->
+          <div class="search-container">
+            <input
+              id="browse-search"
+              type="search"
+              class="input"
+              placeholder="Filter by keyword…"
+              style="width: 200px; padding-right: 60px;"
+            />
+            <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"></circle>
+              <path d="m21 21-4.35-4.35"></path>
+            </svg>
+            <button class="search-clear" type="button" title="Clear search" hidden></button>
+          </div>
+        </div>
+
+        <!-- Cards injected here by app.js → renderProfiles() -->
+        <div id="profiles-grid" class="profiles-grid"></div>
+
+        <!-- Shown when the grid is empty (no results or no data yet) -->
+        <div id="browse-empty" class="empty-state" hidden>
+          <p class="empty-icon">◎</p>
+          <p>No profiles found matching your search.</p>
+          <p class="text-muted" style="font-size: 13px; margin-top: 8px;">Try adjusting your keywords or check back later for new profiles.</p>
+        </div>
+
+      </section>
+
+
+      <!-- ═══════════════════════════════════════════
+           PAGE: VIEW FULL PROFILE
+           Shown when a user clicks a profile card.
+
+           Data: api.getProfileById(id)  →  ViewFullProfileDTO
+           ViewFullProfileDTO fields:
+             id, name, age, gender,
+             publicInfo:  { city, goal, bio, photo, social }
+             keywords[],
+             privateInfo: { phone, email, social }   ← only if matched
+      ════════════════════════════════════════════ -->
+      <section id="page-profile" class="page">
+
+        <button id="btn-back-to-browse" class="btn-ghost btn-sm" style="margin-bottom: 20px;">
+          ← Back to browse
+        </button>
+
+        <!-- Profile header: avatar + name + meta -->
+        <div class="profile-header card">
+          <div class="profile-avatar">
+            <!-- src set by app.js from publicInfo.photo -->
+            <img id="prof-photo" src="" alt="Profile photo" onerror="this.style.display='none'" />
+            <!-- Fallback initials shown when no photo -->
+            <span id="prof-initials" class="avatar-initials"></span>
+          </div>
+          <div class="profile-meta">
+            <h2 id="prof-name">—</h2>
+            <!-- age · gender · city -->
+            <p id="prof-sub" class="text-muted"></p>
+            <!-- Goal tag -->
+            <p id="prof-goal" class="text-accent" style="margin-top: 6px; font-size: 13px;"></p>
+            <!-- Keywords rendered as chips -->
+            <div id="prof-keywords" class="chip-list" style="margin-top: 10px;"></div>
+          </div>
+        </div>
+
+        <!-- Public info: bio + socials (visible to everyone) -->
+        <div class="card" style="margin-top: 16px;">
+          <h3 class="card-title">About</h3>
+          <p id="prof-bio" class="text-muted" style="line-height: 1.7;"></p>
+          <div id="prof-socials" class="social-links" style="margin-top: 12px;"></div>
+        </div>
+
+        <!--
+          Private info: phone + email
+          Only shown when users are mutually matched.
+          Controlled by app.js — hidden by default.
+        -->
+        <div id="prof-private" class="card card-accent" style="margin-top: 16px;" hidden>
+          <h3 class="card-title">Contact info <span class="text-muted">(matched)</span></h3>
+          <div class="field-row">
+            <div>
+              <label class="label">Phone</label>
+              <span id="prof-phone" class="text-muted">—</span>
+            </div>
+            <div>
+              <label class="label">Email</label>
+              <span id="prof-email" class="text-muted">—</span>
+            </div>
+          </div>
+        </div>
+
+        <!--
+          Send invitation form.
+          Submits: CreateInvitationDTO { fromId, toId }
+          toId is set by app.js when opening this profile.
+        -->
+        <div class="card" style="margin-top: 16px;">
+          <h3 class="card-title">Send an invitation</h3>
+          <form id="form-send-invitation" novalidate>
+            <!-- toId is set programmatically — not shown to user -->
+            <input type="hidden" id="inv-to-id" name="toId" />
+            <button type="submit" class="btn-primary">Send invitation</button>
+          </form>
+        </div>
+
+      </section>
+
+      <!--═══════════════════════════════════════════
+     PAGE: MY PROFILE
+     Shows the current user's own profile.
+     Data: api.getMyProfile() → ViewFullProfileDTO
+      ════════════════════════════════════════════ -->
+      <section id="page-my-profile" class="page">
+
+        <!-- Banner -->
+        <div class="my-profile-banner">
+          <div class="my-profile-banner-bg"></div>
+          <div class="my-profile-banner-content">
+            <div class="my-profile-avatar">
+              <img id="my-photo" src="" alt="" onerror="this.style.display='none'" />
+              <span id="my-initials" class="avatar-initials"></span>
+            </div>
+            <div class="my-profile-banner-text">
+              <h1 id="my-name">—</h1>
+              <p id="my-sub" class="my-profile-sub"></p>
+              <div id="my-keywords" class="chip-list" style="margin-top: 10px;"></div>
+            </div>
+            <a href="#edit-profile" class="btn-ghost btn-sm my-profile-edit-btn">Edit profile</a>
+          </div>
+        </div>
+
+        <!-- About -->
+        <div class="card" style="margin-top: 20px;">
+          <h3 class="card-title">About</h3>
+          <p id="my-bio" class="text-muted" style="line-height:1.7;"></p>
+          <div id="my-goal" class="text-accent" style="margin-top:8px; font-size:13px;"></div>
+        </div>
+
+        <!-- Public info -->
+        <div class="card" style="margin-top: 16px;">
+          <h3 class="card-title">Public info <span class="text-muted">(visible to everyone)</span></h3>
+          <div class="field-row">
+            <div>
+              <label class="label">City</label>
+              <span id="my-city" class="text-muted">—</span>
+            </div>
+            <div>
+              <label class="label">Social</label>
+              <div id="my-socials" class="social-links"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Private info -->
+        <div class="card card-accent" style="margin-top: 16px;">
+          <h3 class="card-title">Private info <span class="text-muted">(only shown to matches)</span></h3>
+          <div class="field-row">
+            <div>
+              <label class="label">Phone</label>
+              <span id="my-phone" class="text-muted">—</span>
+            </div>
+            <div>
+              <label class="label">Email</label>
+              <span id="my-email-priv" class="text-muted">—</span>
+            </div>
+          </div>
+        </div>
+
+      </section>
+      <!-- ═══════════════════════════════════════════
+           PAGE: EDIT MY PROFILE
+           Submits: UpdateProfileDTO
+
+           UpdateProfileDTO fields:
+             name, age, gender,
+             publicInfo:  { city, goal, bio, photo }
+             privateInfo: { phone, email, social }
+             keywords:    string[]  (comma-separated in input, split in api.js)
+      ════════════════════════════════════════════ -->
+      <section id="page-edit-profile" class="page">
+
+        <div class="page-header">
+          <h1>Edit <em>profile</em></h1>
+        </div>
+
+        <form id="form-update-profile" novalidate style="max-width: 560px;">
+
+          <!-- Basic info ──────────────────────────── -->
+          <div class="card">
+            <h3 class="card-title">Basic info</h3>
+
+            <div class="field-row">
+              <div class="field">
+                <label class="label" for="edit-name">Name</label>
+                <input id="edit-name" name="name" type="text" class="input" placeholder="Your name" />
+                <div class="field-error"></div>
+              </div>
+              <div class="field">
+                <label class="label" for="edit-age">Age</label>
+                <input id="edit-age" name="age" type="number" class="input" min="18" max="99" placeholder="18+" />
+              </div>
+            </div>
+
+            <div class="field">
+              <label class="label" for="edit-gender">Gender</label>
+              <input id="edit-gender" name="gender" type="text" class="input" placeholder="e.g. man, woman, non-binary…" />
+            </div>
+          </div>
+
+          <!-- Public info ─────────────────────────────
+               Stored in publicInfo { city, goal, bio, photo }
+               Visible to all users.
+          ──────────────────────────────────────────── -->
+          <div class="card" style="margin-top: 16px;">
+            <h3 class="card-title">Public info <span class="text-muted">(visible to everyone)</span></h3>
+
+            <div class="field-row">
+              <div class="field">
+                <label class="label" for="edit-city">City</label>
+                <input id="edit-city" name="city" type="text" class="input" placeholder="Where you're based" />
+              </div>
+              <div class="field">
+                <label class="label" for="edit-goal">Looking for</label>
+                <input id="edit-goal" name="goal" type="text" class="input" placeholder="e.g. friendship, relationship…" />
+              </div>
+            </div>
+
+            <div class="field">
+              <label class="label" for="edit-bio">Bio</label>
+              <textarea id="edit-bio" name="bio" class="input" rows="4" placeholder="Tell people about yourself…"></textarea>
+            </div>
+
+            <div class="field">
+              <label class="label" for="edit-photo">Photo URL</label>
+              <div style="display: flex; align-items: center;">
+                <input id="edit-photo" name="photo" type="url" class="input" placeholder="https://…" style="flex: 1;" />
+                <div id="photo-preview" class="image-preview">
+                  <span class="preview-initials">?</span>
+                </div>
+              </div>
+              <div class="field-error"></div>
+            </div>
+          </div>
+
+          <!-- Private info ────────────────────────────
+               Stored in privateInfo { phone, email, social }
+               Only shown to mutually matched users.
+          ──────────────────────────────────────────── -->
+          <div class="card" style="margin-top: 16px;">
+            <h3 class="card-title">Private info <span class="text-muted">(only shown to matches)</span></h3>
+
+            <div class="field-row">
+              <div class="field">
+                <label class="label" for="edit-phone">Phone</label>
+                <input id="edit-phone" name="phone" type="tel" class="input" placeholder="+380…" />
+              </div>
+              <div class="field">
+                <label class="label" for="edit-email-priv">Email</label>
+                <input id="edit-email-priv" name="email" type="email" class="input" placeholder="you@email.com" />
+                <div class="field-error"></div>
+              </div>
+            </div>
+
+            <div class="field">
+              <label class="label" for="edit-social">Social links</label>
+              <input id="edit-social" name="social" type="text" class="input" placeholder="instagram.com/you, t.me/you" />
+            </div>
+          </div>
+
+          <!-- Keywords ────────────────────────────────
+               Stored as string[] in UpdateProfileDTO.keywords
+               User types comma-separated; api.js splits them.
+          ──────────────────────────────────────────── -->
+          <div class="card" style="margin-top: 16px;">
+            <h3 class="card-title">Keywords</h3>
+            <div class="field">
+              <label class="label" for="edit-keywords">
+                Comma-separated (e.g. hiking, jazz, dogs)
+              </label>
+              <input id="edit-keywords" name="keywords" type="text" class="input" placeholder="hiking, jazz, coffee…" />
+            </div>
+          </div>
+
+          <div class="form-actions" style="margin-top: 20px;">
+            <button type="submit" class="btn-primary">Save changes</button>
+            <button type="button" id="btn-cancel-edit" class="btn-ghost">Cancel</button>
+          </div>
+
+        </form>
+      </section>
+
+
+      <!-- ═══════════════════════════════════════════
+           PAGE: INVITATIONS
+           Two tabs: Received / Sent.
+
+           Data:
+             Received: api.getReceivedInvitations()  →  ViewInvitationDTO[]
+             Sent:     api.getSentInvitations()       →  ViewInvitationDTO[]
+
+           ViewInvitationDTO fields: id, senderName, status
+      ════════════════════════════════════════════ -->
+      <section id="page-invitations" class="page">
+
+        <div class="page-header">
+          <h1>Invita<em>tions</em></h1>
+        </div>
+
+        <!-- Tab switcher -->
+        <div class="tabs">
+          <button class="tab active" data-tab="received">Received</button>
+          <button class="tab"        data-tab="sent">Sent</button>
+        </div>
+
+        <!-- Received list — rendered by app.js → renderInvitations() -->
+        <div id="inv-list-received" class="inv-list"></div>
+
+        <!-- Sent list -->
+        <div id="inv-list-sent" class="inv-list" hidden></div>
+
+      </section>
+
+
+      <!-- ═══════════════════════════════════════════
+           PAGE: REGISTER
+           Submits: CreateUserDTO { email, password }
+      ════════════════════════════════════════════ -->
+      <section id="page-register" class="page page-auth">
+
+        <div class="auth-box">
+          <h1>Create account</h1>
+          <p class="text-muted" style="margin-bottom: 24px;">Start connecting with people.</p>
+
+          <form id="form-register" class="card" novalidate>
+            <div class="field">
+              <label class="label" for="reg-email">Email</label>
+              <input id="reg-email" name="email" type="email" class="input" placeholder="you@example.com" />
+              <div class="field-error"></div>
+            </div>
+            <div class="field">
+              <label class="label" for="reg-password">Password</label>
+              <input id="reg-password" name="password" type="password" class="input" placeholder="Min. 8 characters" />
+              <div class="field-error"></div>
+            </div>
+            <button type="submit" class="btn-primary btn-full">Create account</button>
+            <p class="text-muted" style="text-align:center; margin-top: 12px; font-size: 13px;">
+              Already have an account? <a href="#login">Log in</a>
+            </p>
+          </form>
+        </div>
+
+      </section>
+
+
+      <!-- ═══════════════════════════════════════════
+           PAGE: LOGIN
+           Submits: { email, password }
+      ════════════════════════════════════════════ -->
+      <section id="page-login" class="page page-auth">
+
+        <div class="auth-box">
+          <h1>Welcome back</h1>
+          <p class="text-muted" style="margin-bottom: 24px;">Log in to your account.</p>
+
+          <form id="form-login" class="card" novalidate>
+            <div class="field">
+              <label class="label" for="login-email">Email</label>
+              <input id="login-email" name="email" type="email" class="input" placeholder="you@example.com" />
+              <div class="field-error"></div>
+            </div>
+            <div class="field">
+              <label class="label" for="login-password">Password</label>
+              <input id="login-password" name="password" type="password" class="input" placeholder="Your password" />
+              <div class="field-error"></div>
+            </div>
+            <button type="submit" class="btn-primary btn-full">Log in</button>
+            <p class="text-muted" style="text-align:center; margin-top: 12px; font-size: 13px;">
+              No account? <a href="#register">Register</a>
+            </p>
+          </form>
+        </div>
+
+      </section>
+
+
+  </main><!-- /#main -->
+</div><!-- /#app -->
+
+<!-- Toast notifications container -->
+<div id="toast-container" class="toast-container"></div>
+
+<!-- Confirmation dialog (hidden by default) -->
+<div id="confirm-dialog" class="confirm-dialog" hidden>
+  <div class="confirm-content">
+    <h3 id="confirm-title" class="confirm-title">Confirm Action</h3>
+    <p id="confirm-message" class="confirm-message">Are you sure?</p>
+    <div class="confirm-actions">
+      <button id="confirm-cancel" class="btn-ghost">Cancel</button>
+      <button id="confirm-ok" class="btn-primary">OK</button>
+    </div>
+  </div>
+</div>
+
+
+  <!--
+    Load order matters:
+      1. api.js   — defines window.API  (all backend calls)
+      2. app.js   — uses window.API, wires up the DOM
+  -->
+  <script src="js/api.js"></script>
+  <script src="js/app.js"></script>
+
 </body>
 </html>
