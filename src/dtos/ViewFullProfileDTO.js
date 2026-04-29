@@ -19,7 +19,7 @@ class ViewFullProfileDTO extends ViewProfileDTO {
 
         const privateInfo = data.privateInfo || {};
         this.phone = privateInfo.phone;
-        this.email = privateInfo.email;
+        this.privateEmail = privateInfo.email;
         this.social = privateInfo.social || {};
     }
 }

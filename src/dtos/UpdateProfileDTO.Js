@@ -31,9 +31,13 @@ class UpdateProfileDTO {
             social: data.social || {}
         };
 
-        this.keywords = Array.isArray(data.keywords)
-            ? data.keywords
-            : (data.keywords ? data.keywords.split(',').map(s => s.trim()).filter(s => s !== "") : []);
+        if (Array.isArray(data.keywords)) {
+            this.keywords = data.keywords;
+        } else if (typeof data.keywords === 'string') {
+            this.keywords = data.keywords.split(',').map(s => s.trim()).filter(Boolean);
+        } else {
+            this.keywords = [];
+        }
     }
 }
 
