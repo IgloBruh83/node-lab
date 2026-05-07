@@ -6,7 +6,7 @@ class InvitationController {
     async create(req, res) {
         try {
             const invitationData = new CreateInvitationDTO({
-                fromId: req.user.id,
+                fromId: req.user?.id || 777,
                 toId: req.body.toId
             });
 

@@ -1,48 +1,107 @@
+const db = require('./db');
 
 class UserService {
-    async createUser(userData) {
-        // ЗАГЛУШКА
-        console.log("DB: Збереження нового користувача...", userData.email);
+    
+    async findById(userId) {
+        const userRes = await db.query('SELECT * FROM users WHERE id = $1', [userId]);
+        if (userRes.rows.length === 0) return null;
+        const row = userRes.rows[0];
+
+        const keywordRes = await db.query(
+            'SELECT k.value FROM keywords k JOIN user_keywords uk ON k.id = uk.keyword_id WHERE uk.user_id = $1', 
+            [userId]
+        );
         
-        return {
-            id: 777, // ЗАГЛУШКА
-            ...userData
-        };
+        return this._mapToDto(row, keywordRes.rows.map(k => k.value));
+    }
+
+    async getAllUsers() {
+        try {
+            // Отримуємо всіх користувачів та їхні ключові слова одним запитом
+            const query = `
+                SELECT u.*, array_agg(k.value) FILTER (WHERE k.value IS NOT NULL) as keywords
+                FROM users u
+                LEFT JOIN user_keywords uk ON u.id = uk.user_id
+                LEFT JOIN keywords k ON uk.keyword_id = k.id
+                GROUP BY u.id
+                ORDER BY u.id;
+            `;
+
+            const res = await db.query(query);
+
+            return res.rows.map(row => this._mapToDto(row, row.keywords || []));
+        } catch (err) {
+            console.error("Помилка в UserService.getAllUsers:", err);
+            throw err;
+        }
+    }
+
+    async createUser(userData) {
+        const query = `
+            INSERT INTO users (email, password, name, age, gender)
+            VALUES ($1, $2, $3, $4, $5)
+            RETURNING id;
+        `;
+        const values = [
+            userData.email,
+            userData.password,
+            userData.name,
+            userData.age,
+            userData.gender
+        ];
+
+        const res = await db.query(query, values);
+        return res.rows[0];
     }
 
     async updateUser(userId, updateData) {
-        // ЗАГЛУШКА
-        console.log(`DB: Оновлення запису з ID: ${userId}`);
+        const query = `
+            UPDATE users SET
+                name = $1, age = $2, gender = $3,
+                photo_url = $4, city = $5, goal = $6, bio = $7,
+                phone = $8, email = $9, social_links = $10
+            WHERE id = $11
+            RETURNING *;
+        `;
 
-        return {
-            id: userId,
-            ...updateData
-        };
+        const values = [
+            updateData.name,
+            updateData.age,
+            updateData.gender,
+            updateData.publicInfo?.photo,
+            updateData.publicInfo?.city,
+            updateData.publicInfo?.goal,
+            updateData.publicInfo?.bio,
+            updateData.privateInfo?.phone,
+            updateData.privateInfo?.email,
+            updateData.privateInfo?.social,
+            userId
+        ];
+
+        const res = await db.query(query, values);
+        if (res.rows.length === 0) throw new Error("Користувача не знайдено");
+
+        return this._mapToDto(res.rows[0], []); 
     }
 
-    async findById(userId) {
-        // ЗАГЛУШКА
+    _mapToDto(row, keywords = []) {
         return {
-            id: Number(userId),
-            name: "Balbec",
-            age: 28,
-            gender: "male",
+            id: row.id,
+            name: row.name,
+            age: row.age,
+            gender: row.gender,
             publicInfo: {
-                city: "Kyiv",
-                goal: "Searching for a coding partner",
-                bio: "I am a software developer who loves sports. Looking for someone to play tennis with and discuss JavaScript.",
-                photo: "https://example.com/photo.jpg"
+                city: row.city,
+                goal: row.goal,
+                bio: row.bio,
+                photo: row.photo_url
             },
             privateInfo: {
-                phone: "+380991234567",
-                email: "balbec@example.com",
-                social: { telegram: "@balbec_dev", instagram: "@balbec_sport" }
+                phone: row.phone,
+                email: row.email,
+                social: row.social_links
             },
-            keywords: [
-                { value: "tennis" }, 
-                { value: "javascript" }, 
-                "node.js"
-            ]
+            keywords: keywords
         };
     }
 }

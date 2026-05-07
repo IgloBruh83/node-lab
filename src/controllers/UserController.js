@@ -3,7 +3,6 @@ const UpdateProfileDTO = require('../dtos/UpdateProfileDTO');
 const ViewProfileDTO = require('../dtos/ViewProfileDTO');
 const ViewFullProfileDTO = require('../dtos/ViewFullProfileDTO');
 
-// Гіпотетичний сервіс для роботи з базою даних
 const UserService = require('../services/UserService');
 
 class UserController {
@@ -30,13 +29,27 @@ class UserController {
     }
 
     async getProfile(req, res) {
-    try {
-        const user = await UserService.findById(req.params.id);
+        try {
+            const user = await UserService.findById(req.params.id);
+            
+            res.json(new ViewFullProfileDTO(user)); 
+        } catch (error) {
+            res.status(404).json({ error: "Профіль не знайдено" });
+        }
+
         
-        // ТИМЧАСОВО
-        res.json(new ViewFullProfileDTO(user)); 
+    }
+
+    async getAllUsers(req, res) {
+    try {
+        const users = await UserService.getAllUsers();
+        
+        const userDtos = users.map(user => new ViewProfileDTO(user));
+        
+        res.json(userDtos);
     } catch (error) {
-        res.status(404).json({ error: "Профіль не знайдено" });
+        console.error("Помилка контролера при отриманні списку:", error);
+        res.status(500).json({ error: "Не вдалося отримати список користувачів" });
     }
 }
 }

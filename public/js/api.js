@@ -2,7 +2,6 @@
 const API_URL = '/api';
 
 window.API = {
-    // Реєстрація (використовує CreateUserDTO на бекенді)
     async register(email, password) {
         const res = await fetch(`${API_URL}/users/register`, {
             method: 'POST',
@@ -12,22 +11,20 @@ window.API = {
         return res.json();
     },
 
-    // Отримання списку профілів (для сторінки Browse)
     async getProfiles() {
-        // Оскільки у нас ще немає окремого маршруту для списку, 
-        // імітуємо отримання масиву на основі даних сервісу
-        const res = await fetch(`${API_URL}/users/profile/777`); 
-        const user = await res.json();
-        return [user];
+        const res = await fetch(`${API_URL}/users`); 
+        if (!res.ok) {
+            console.error("Не вдалося завантажити список користувачів");
+            return [];
+        }
+        return res.json();
     },
 
-    // Отримання одного профілю (використовує ViewFullProfileDTO або ViewProfileDTO)
     async getProfileById(id) {
         const res = await fetch(`${API_URL}/users/profile/${id}`);
         return res.json();
     },
 
-    // Оновлення профілю (використовує UpdateProfileDTO)
     async updateProfile(id, profileData) {
         const res = await fetch(`${API_URL}/users/profile/${id}`, {
             method: 'PUT',
@@ -37,7 +34,6 @@ window.API = {
         return res.json();
     },
 
-    // Відправка запиту (використовує CreateInvitationDTO)
     async sendInvitation(toId) {
         const res = await fetch(`${API_URL}/invitations`, {
             method: 'POST',
@@ -47,7 +43,6 @@ window.API = {
         return res.json();
     },
 
-    // Отримання списку запрошень (використовує ViewInvitationDTO)
     async getMyInvitations() {
         const res = await fetch(`${API_URL}/invitations/my`);
         return res.json();
