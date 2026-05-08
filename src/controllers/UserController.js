@@ -15,8 +15,19 @@ class UserController {
 
     async getAll(req, res) {
         try {
-            const users = await UserService.getAll(req.query.exclude);
-            res.json(users.map(u => new ViewProfileDTO(u)));
+            const { exclude, q, page, limit } = req.query;
+            
+            const result = await UserService.getAll({
+                excludeId: exclude,
+                searchQuery: q,
+                page,
+                limit
+            });
+
+            res.json({
+                ...result,
+                users: result.users.map(u => new ViewProfileDTO(u))
+            });
         } catch (error) {
             res.status(500).json({ error: error.message });
         }
@@ -49,8 +60,9 @@ class UserController {
 
     async delete(req, res) {
         try {
-            await UserService.delete(req.params.id);
-            res.json({ message: "Успішно видалено" });
+            const deleted = await UserService.delete(req.params.id);
+            if (!deleted) return res.status(404).json({ message: "User not found" });
+            res.status(204).send();
         } catch (error) {
             res.status(500).json({ error: error.message });
         }

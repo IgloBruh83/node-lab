@@ -31,21 +31,29 @@
     <main id="main">
       <!-- PAGE: BROWSE -->
       <section id="page-browse" class="page">
-        <div class="page-header">
-          <div>
-            <h1>Browse <em>profiles</em></h1>
-            <p class="text-muted">Find connections based on your interests.</p>
-          </div>
-          <div class="search-container">
-            <input id="browse-search" type="search" class="input" placeholder="Filter by keyword…" />
-          </div>
+      <div class="page-header">
+        <div>
+          <h1>Browse <em>profiles</em></h1>
+          <p class="text-muted">Find connections based on your interests.</p>
         </div>
-        <div id="profiles-grid" class="profiles-grid"></div>
-        <div id="browse-empty" class="empty-state" hidden>
-          <p class="empty-icon">◎</p>
-          <p>No profiles found matching your search.</p>
+        <div class="search-container">
+          <input id="browse-search" type="search" class="input" placeholder="Filter by name or city…" />
         </div>
-      </section>
+      </div>
+
+      <div id="profiles-grid" class="profiles-grid"></div>
+
+      <div id="browse-pagination" class="pagination-container" style="display: flex; justify-content: center; align-items: center; gap: 20px; margin-top: 30px;">
+        <button id="btn-prev-page" class="btn btn-sm btn-ghost">← Previous</button>
+        <span id="page-info" class="text-muted">Page 1 of 1</span>
+        <button id="btn-next-page" class="btn btn-sm btn-ghost">Next →</button>
+      </div>
+
+      <div id="browse-empty" class="empty-state" hidden>
+        <p class="empty-icon">◎</p>
+        <p>No profiles found matching your search.</p>
+      </div>
+    </section>
 
       <!-- PAGE: VIEW FULL PROFILE -->
       <section id="page-profile" class="page">

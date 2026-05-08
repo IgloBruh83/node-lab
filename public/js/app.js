@@ -33,52 +33,91 @@ document.addEventListener('DOMContentLoaded', () => {
 
     window.addEventListener('hashchange', navigate);
 
+    let currentPage = 1;
+    let searchQuery = "";
+
     async function renderBrowse() {
         showPage('page-browse');
+        const grid = document.getElementById('profiles-grid');
+        const pagination = document.getElementById('browse-pagination');
+        
         try {
-            state.profiles = await window.API.getUsers(state.user.id);
-            
-            const grid = document.getElementById('profiles-grid');
+            const data = await window.API.getUsers({
+                exclude: state.user.id,
+                page: currentPage,
+                q: searchQuery,
+                limit: 6
+            });
+
+            state.profiles = data.users;
             grid.innerHTML = '';
-            
-            if (!state.profiles || state.profiles.length === 0) {
+
+            if (state.profiles.length === 0) {
                 document.getElementById('browse-empty').hidden = false;
+                pagination.style.display = 'none';
                 return;
             }
-            document.getElementById('browse-empty').hidden = true;
 
-            // 3. Рендеринг карток
+            document.getElementById('browse-empty').hidden = true;
+            pagination.style.display = 'flex';
+
+            // --- ГЕНЕРАЦІЯ КАРТОК ---
             state.profiles.forEach(p => {
                 const tpl = document.getElementById('tpl-profile-card').content.cloneNode(true);
                 const card = tpl.querySelector('.profile-card');
                 
-                card.querySelector('.name').textContent = `${p.name}, ${p.age || '?'}`;
-                card.querySelector('.meta').textContent = p.publicInfo?.city || 'Місто не вказано';
-                
-                const img = card.querySelector('img');
-                const initialsSpan = tpl.querySelector('.card-avatar span');
+                card.onclick = () => { 
+                    window.location.hash = `#profile?id=${p.id}`; 
+                };
+
+                const img = card.querySelector('.card-avatar img');
+                const spanInitials = card.querySelector('.card-avatar span');
                 
                 if (p.publicInfo?.photo) {
                     img.src = p.publicInfo.photo;
-                    if (initialsSpan) initialsSpan.hidden = true;
+                    img.alt = p.name;
+                    spanInitials.style.display = 'none';
                 } else {
-                    img.hidden = true;
-                    if (initialsSpan) {
-                        initialsSpan.textContent = p.name ? p.name[0].toUpperCase() : '?';
-                    }
+                    img.style.display = 'none';
+                    spanInitials.textContent = p.name ? p.name[0].toUpperCase() : '?';
                 }
-                
-                card.addEventListener('click', () => {
-                    window.location.hash = `#profile?id=${p.id}`;
+
+                card.querySelector('.name').textContent = `${p.name}, ${p.age || '?'}`;
+                card.querySelector('.meta').textContent = p.publicInfo?.city || 'Місто не вказано';
+
+                const kwContainer = card.querySelector('.keywords');
+                kwContainer.innerHTML = '';
+                (p.keywords || []).slice(0, 3).forEach(word => {
+                    const chip = document.createElement('span');
+                    chip.className = 'chip';
+                    chip.textContent = word;
+                    kwContainer.appendChild(chip);
                 });
-                
-                grid.appendChild(card);
+
+                grid.appendChild(tpl);
             });
-        } catch (e) { 
-            console.error(e);
-            alert("Помилка завантаження профілів: " + e.message); 
+            // --- ОНОВЛЕННЯ ПАГІНАЦІЇ ---
+            document.getElementById('page-info').textContent = `Page ${data.currentPage} of ${data.totalPages}`;
+            
+            const btnPrev = document.getElementById('btn-prev-page');
+            const btnNext = document.getElementById('btn-next-page');
+
+            btnPrev.disabled = data.currentPage <= 1;
+            btnNext.disabled = data.currentPage >= data.totalPages;
+
+            btnPrev.onclick = () => { if (currentPage > 1) { currentPage--; renderBrowse(); } };
+            btnNext.onclick = () => { if (currentPage < data.totalPages) { currentPage++; renderBrowse(); } };
+
+        } catch (e) {
+            alert("Помилка завантаження: " + e.message);
         }
     }
+
+    document.getElementById('browse-search').oninput = (e) => {
+        searchQuery = e.target.value;
+        currentPage = 1;
+        renderBrowse();
+    };
 
     async function renderProfileDetails(params) {
         showPage('page-profile');

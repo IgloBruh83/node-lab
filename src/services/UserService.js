@@ -19,11 +19,38 @@ class UserService {
         }
     }
 
-    async getAll(excludeId = null) {
-        return await User.findAll({
-            where: excludeId ? { id: { [Op.ne]: excludeId } } : {},
-            include: [{ model: PublicInfo, as: 'publicInfo' }, { model: Keyword }]
+    async getAll({ excludeId, searchQuery, page = 1, limit = 6 }) {
+        const offset = (page - 1) * limit;
+        const where = {};
+
+        if (excludeId) where.id = { [Op.ne]: excludeId };
+
+        if (searchQuery) {
+            where[Op.or] = [
+                { name: { [Op.iLike]: `%${searchQuery}%` } },
+                { '$Keywords.value$': { [Op.iLike]: `%${searchQuery}%` } }
+            ];
+        }
+
+        const { count, rows } = await User.findAndCountAll({
+            where,
+            include: [
+                { model: PublicInfo, as: 'publicInfo' },
+                { model: Keyword }
+            ],
+            limit: parseInt(limit),
+            offset: parseInt(offset),
+            distinct: true, 
+            subQuery: false,
+            order: [['name', 'ASC']]
         });
+
+        return {
+            totalItems: count,
+            totalPages: Math.ceil(count / limit),
+            currentPage: parseInt(page),
+            users: rows
+        };
     }
 
     async getById(id, viewerId = null) {

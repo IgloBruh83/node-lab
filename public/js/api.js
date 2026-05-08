@@ -37,17 +37,19 @@ window.API = {
 
     // === КОРИСТУВАЧІ (USER CRUD) ===
 
-    async getUsers(excludeId) {
-        const url = excludeId ? `/users?exclude=${excludeId}` : '/users';
-        return this._fetch(url);
+    getUsers: async (params = {}) => {
+        const query = new URLSearchParams(params).toString();
+        const res = await fetch(`/api/users?${query}`);
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.error || "Failed to fetch users");
+        }
+        return res.json();
     },
 
-    async getUserById(id, viewerId) {
-        const url = (viewerId !== undefined) 
-            ? `/users/${id}?viewerId=${viewerId}` 
-            : `/users/${id}`;
-            
-        return this._fetch(url);
+    getUserById: async (id, viewerId) => {
+        const res = await fetch(`/api/users/${id}?viewerId=${viewerId}`);
+        return res.json();
     },
 
     async updateUser(id, updateData) {
