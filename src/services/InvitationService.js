@@ -1,60 +1,52 @@
-const db = require('../db');
-const Invitation = require('../models/Invitation');
+const { Invitation, User } = require('../models');
+const sequelize = require('../db');
+const { Op } = require('sequelize');
 
 class InvitationService {
-    _mapRowToInvitation(row) {
-        return new Invitation({
-            id: row.id,
-            fromId: row.from_id,
-            toId: row.to_id,
-            status: row.status
-        });
-    }
-
     async create(dto) {
-        const query = `
-            INSERT INTO invitations (from_id, to_id, status)
-            VALUES ($1, $2, $3)
-            RETURNING *`;
-        const { rows } = await db.query(query, [dto.fromId, dto.toId, dto.status]);
-        return this._mapRowToInvitation(rows[0]);
+        const t = await sequelize.transaction();
+        try {
+            if (dto.fromId === dto.toId) {
+                throw new Error("Ви не можете надіслати запит самому собі");
+            }
+
+            const invitation = await Invitation.create({
+                from_id: dto.fromId,
+                to_id: dto.toId,
+                status: 'pending'
+            }, { transaction: t });
+
+            await t.commit();
+            return invitation;
+        } catch (error) {
+            await t.rollback();
+            throw error;
+        }
     }
 
     async getByUserId(userId) {
-        const query = `
-            SELECT 
-                i.*, 
-                u_from.name as sender_name, 
-                u_from.age as sender_age,
-                u_to.name as receiver_name, 
-                u_to.age as receiver_age
-            FROM invitations i
-            JOIN users u_from ON i.from_id = u_from.id
-            JOIN users u_to ON i.to_id = u_to.id
-            WHERE i.from_id = $1 OR i.to_id = $1`;
-        
-        const { rows } = await db.query(query, [userId]);
-        return rows; 
-    }
-
-    async getById(id) {
-        const { rows } = await db.query('SELECT * FROM invitations WHERE id = $1', [id]);
-        return rows[0] ? this._mapRowToInvitation(rows[0]) : null;
+        return await Invitation.findAll({
+            where: {
+                [Op.or]: [{ from_id: userId }, { to_id: userId }]
+            },
+            include: [
+                { model: User, as: 'Sender', attributes: ['name', 'age'] },
+                { model: User, as: 'Receiver', attributes: ['name', 'age'] }
+            ]
+        });
     }
 
     async updateStatus(id, status) {
-        const query = `
-            UPDATE invitations 
-            SET status = $1 
-            WHERE id = $2 
-            RETURNING *`;
-        const { rows } = await db.query(query, [status, id]);
-        return rows[0] ? this._mapRowToInvitation(rows[0]) : null;
+        const inv = await Invitation.findByPk(id);
+        if (inv) {
+            inv.status = status;
+            await inv.save();
+        }
+        return inv;
     }
 
     async delete(id) {
-        await db.query('DELETE FROM invitations WHERE id = $1', [id]);
-        return true;
+        return await Invitation.destroy({ where: { id } });
     }
 }
 

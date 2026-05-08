@@ -1,14 +1,12 @@
 const UserService = require('../services/UserService');
-const CreateUserDTO = require('../dtos/CreateUserDTO');
-const UpdateProfileDTO = require('../dtos/UpdateProfileDTO');
 const ViewProfileDTO = require('../dtos/ViewProfileDTO');
 const ViewFullProfileDTO = require('../dtos/ViewFullProfileDTO');
+const UpdateProfileDTO = require('../dtos/UpdateProfileDTO');
 
 class UserController {
     async create(req, res) {
         try {
-            const dto = new CreateUserDTO(req.body);
-            const user = await UserService.create({ ...dto, name: req.body.name });
+            const user = await UserService.create(req.body);
             res.status(201).json(new ViewFullProfileDTO(user));
         } catch (error) {
             res.status(400).json({ error: error.message });
@@ -17,21 +15,17 @@ class UserController {
 
     async getAll(req, res) {
         try {
-            const excludeId = req.query.exclude;
-            const users = await UserService.getAll(excludeId);
-            
-            const response = users.map(u => new ViewProfileDTO(u));
-            res.json(response);
+            const users = await UserService.getAll(req.query.exclude);
+            res.json(users.map(u => new ViewProfileDTO(u)));
         } catch (error) {
-            console.error(error);
-            res.status(500).json({ error: "Не вдалося отримати список користувачів" });
+            res.status(500).json({ error: error.message });
         }
     }
 
     async getById(req, res) {
         try {
             const { id } = req.params;
-            const viewerId = req.query.viewerId;
+            const viewerId = req.query.viewerId; 
             
             const user = await UserService.getById(id, viewerId);
             if (!user) return res.status(404).json({ message: "Користувача не знайдено" });
@@ -46,6 +40,7 @@ class UserController {
         try {
             const dto = new UpdateProfileDTO(req.body);
             const updatedUser = await UserService.update(req.params.id, dto);
+            
             res.json(new ViewFullProfileDTO(updatedUser));
         } catch (error) {
             res.status(400).json({ error: error.message });
@@ -55,7 +50,7 @@ class UserController {
     async delete(req, res) {
         try {
             await UserService.delete(req.params.id);
-            res.json({ message: "Користувача успішно видалено" });
+            res.json({ message: "Успішно видалено" });
         } catch (error) {
             res.status(500).json({ error: error.message });
         }

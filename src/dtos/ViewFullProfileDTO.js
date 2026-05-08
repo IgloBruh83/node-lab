@@ -1,18 +1,20 @@
+
 const ViewProfileDTO = require('./ViewProfileDTO');
 
 class ViewFullProfileDTO extends ViewProfileDTO {
-    /**
-     * @param {Object} data
-     */
     constructor(data) {
         super(data);
 
-        const privateInfo = data.privateInfo || {};
-        this.phone = privateInfo.phone || null;
-        this.privateEmail = privateInfo.email || null;
-        this.social = privateInfo.social || {};
+        const priv = data.dataValues?.privateInfo || data.privateInfo || {};
+        this.phone = priv.phone || null;
+        this.privateEmail = priv.email || null;
+        this.social = priv.social || {};
 
-        this.outgoingInvitation = data.outgoingInvitation || null;
+        const invite = data.dataValues?.invitation || data.invitation;
+        this.outgoingInvitation = invite ? { 
+            id: invite.id, 
+            status: invite.status 
+        } : null;
     }
 }
 

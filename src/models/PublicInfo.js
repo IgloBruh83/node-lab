@@ -1,17 +1,11 @@
-class PublicInfo {
-    /**
-     * @param {Object} data
-     * @param {string} data.photo
-     * @param {string} data.city
-     * @param {string} data.goal
-     * @param {string} data.bio
-     */
-    constructor({ photo, city, goal, bio }) {
-        this.photo = photo;
-        this.city = city;
-        this.goal = goal;
-        this.bio = bio;
-    }
-}
+const { DataTypes } = require('sequelize');
+const sequelize = require('../db');
+
+const PublicInfo = sequelize.define('PublicInfo', {
+    photo: { type: DataTypes.STRING, field: 'photo_url' },
+    city: { type: DataTypes.STRING },
+    goal: { type: DataTypes.STRING },
+    bio: { type: DataTypes.TEXT }
+}, { tableName: 'public_info', timestamps: false });
 
 module.exports = PublicInfo;

@@ -1,13 +1,8 @@
-class Keyword {
-    /**
-     * @param {Object} data
-     * @param {number} data.id
-     * @param {string} data.value
-     */
-    constructor({ id, value }) {
-        this.id = id;
-        this.value = value;
-    }
-}
+const { DataTypes } = require('sequelize');
+const sequelize = require('../db');
+
+const Keyword = sequelize.define('Keyword', {
+    value: { type: DataTypes.STRING, unique: true }
+}, { tableName: 'keywords' });
 
 module.exports = Keyword;

@@ -1,19 +1,23 @@
 class ViewInvitationDTO {
     /**
-     * @param {Object} row
+     * @param {Object} inv
      */
-    constructor(row) {
-        this.id = row.id;
-        this.status = row.status;
+    constructor(inv) {
+        this.id = inv.id;
+        this.status = inv.status;
         
-        this.fromId = row.from_id;
-        this.toId = row.to_id;
+        this.fromId = inv.from_id;
+        this.toId = inv.to_id;
 
-        this.senderName = row.sender_name;
-        this.senderAge = row.sender_age;
+        if (inv.Sender) {
+            this.senderName = inv.Sender.name;
+            this.senderAge = inv.Sender.age;
+        }
 
-        this.receiverName = row.receiver_name;
-        this.receiverAge = row.receiver_age;
+        if (inv.Receiver) {
+            this.receiverName = inv.Receiver.name;
+            this.receiverAge = inv.Receiver.age;
+        }
     }
 }
 
