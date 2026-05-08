@@ -1,150 +1,436 @@
-// public/js/app.js
+document.addEventListener('DOMContentLoaded', () => {
+    const state = {
+        user: JSON.parse(localStorage.getItem('user')) || null,
+        profiles: [],
+        currentProfile: null,
+        invitations: []
+    };
 
-const state = {
-    currentUserId: 777, // За замовчуванням використовуємо ID з твоєї заглушки
-    profiles: []
-};
+    // --- Routing ---
+    const routes = {
+        '#browse': () => renderBrowse(),
+        '#profile': (p) => renderProfileDetails(p),
+        '#my-profile': () => renderMyProfile(),
+        '#edit-profile': () => renderEditProfile(),
+        '#invitations': () => renderInvitations(),
+        '#login': () => showPage('page-login'),
+        '#register': () => showPage('page-register')
+    };
 
-// ─── РОУТЕР ──────────────────────────────────────────
-async function router() {
-    const hash = window.location.hash || '#browse';
-    const sections = document.querySelectorAll('.page');
-    sections.forEach(s => s.classList.remove('page-active'));
-
-    if (hash === '#browse') {
-        renderPage('page-browse', loadBrowse);
-    } else if (hash.startsWith('#profile/')) {
-        const id = hash.split('/')[1];
-        renderPage('page-profile', () => loadProfileDetail(id));
-    } else if (hash === '#my-profile') {
-        renderPage('page-my-profile', loadMyProfile);
-    } else if (hash === '#edit-profile') {
-        renderPage('page-edit-profile', prepareEditForm);
-    } else if (hash === '#invitations') {
-        renderPage('page-invitations', loadInvitations);
-    } else {
-        document.getElementById(`page-${hash.replace('#', '')}`)?.classList.add('page-active');
+    function navigate() {
+        const hash = window.location.hash || '#browse';
+        
+        if (!state.user && hash !== '#register' && hash !== '#login') {
+            window.location.hash = '#login';
+            return;
+        }
+        
+        const [page, query] = hash.split('?');
+        if (routes[page]) {
+            routes[page](new URLSearchParams(query));
+        }
     }
-}
 
-function renderPage(id, loadFn) {
-    document.getElementById(id).classList.add('page-active');
-    if (loadFn) loadFn();
-}
+    window.addEventListener('hashchange', navigate);
 
-// ─── ЛОГІКА ЗАВАНТАЖЕННЯ ДАНИХ ────────────────────────
+    async function renderBrowse() {
+        showPage('page-browse');
+        try {
+            state.profiles = await window.API.getUsers(state.user.id);
+            
+            const grid = document.getElementById('profiles-grid');
+            grid.innerHTML = '';
+            
+            if (!state.profiles || state.profiles.length === 0) {
+                document.getElementById('browse-empty').hidden = false;
+                return;
+            }
+            document.getElementById('browse-empty').hidden = true;
 
-async function loadBrowse() {
-    const grid = document.getElementById('profiles-grid');
-    grid.innerHTML = '<p>Завантаження...</p>';
-    const profiles = await window.API.getProfiles();
-    
-    grid.innerHTML = profiles.map(p => `
-        <div class="card profile-card" onclick="location.hash='#profile/${p.id}'">
-            <img src="${p.publicInfo?.photo || ''}" class="card-img" onerror="this.src='https://via.placeholder.com/150'">
-            <div class="card-body">
-                <h3>${p.name}, ${p.age}</h3>
-                <p class="text-muted">${p.publicInfo?.city || 'Невідомо'}</p>
-                <div class="chip-list">
-                    ${p.keywords.map(k => `<span class="chip">${k}</span>`).join('')}
-                </div>
-            </div>
-        </div>
-    `).join('');
-}
-
-async function loadProfileDetail(id) {
-    const p = await window.API.getProfileById(id);
-    
-    document.getElementById('prof-name').textContent = `${p.name}, ${p.age}`;
-    document.getElementById('prof-photo').src = p.publicInfo?.photo || '';
-    document.getElementById('prof-sub').textContent = `${p.gender} · ${p.publicInfo?.city}`;
-    document.getElementById('prof-bio').textContent = p.publicInfo?.bio;
-    document.getElementById('prof-goal').textContent = p.publicInfo?.goal;
-    document.getElementById('inv-to-id').value = p.id;
-    
-    const kwContainer = document.getElementById('prof-keywords');
-    kwContainer.innerHTML = p.keywords.map(k => `<span class="chip">${k}</span>`).join('');
-
-    // Показуємо приватну інфу, якщо вона є (для матчів)
-    const priv = document.getElementById('prof-private');
-    if (p.phone || p.email) {
-        priv.hidden = false;
-        document.getElementById('prof-phone').textContent = p.phone;
-        document.getElementById('prof-email').textContent = p.email;
-    } else {
-        priv.hidden = true;
+            // 3. Рендеринг карток
+            state.profiles.forEach(p => {
+                const tpl = document.getElementById('tpl-profile-card').content.cloneNode(true);
+                const card = tpl.querySelector('.profile-card');
+                
+                card.querySelector('.name').textContent = `${p.name}, ${p.age || '?'}`;
+                card.querySelector('.meta').textContent = p.publicInfo?.city || 'Місто не вказано';
+                
+                const img = card.querySelector('img');
+                const initialsSpan = tpl.querySelector('.card-avatar span');
+                
+                if (p.publicInfo?.photo) {
+                    img.src = p.publicInfo.photo;
+                    if (initialsSpan) initialsSpan.hidden = true;
+                } else {
+                    img.hidden = true;
+                    if (initialsSpan) {
+                        initialsSpan.textContent = p.name ? p.name[0].toUpperCase() : '?';
+                    }
+                }
+                
+                card.addEventListener('click', () => {
+                    window.location.hash = `#profile?id=${p.id}`;
+                });
+                
+                grid.appendChild(card);
+            });
+        } catch (e) { 
+            console.error(e);
+            alert("Помилка завантаження профілів: " + e.message); 
+        }
     }
-}
 
-async function loadMyProfile() {
-    const p = await window.API.getProfileById(state.currentUserId);
-    document.getElementById('my-name').textContent = p.name;
-    document.getElementById('my-photo').src = p.publicInfo?.photo || '';
-    document.getElementById('my-sub').textContent = `${p.age} років · ${p.gender}`;
-    document.getElementById('my-city').textContent = p.publicInfo?.city;
-    document.getElementById('my-bio').textContent = p.publicInfo?.bio;
-    document.getElementById('my-phone').textContent = p.phone || '—';
-    document.getElementById('my-email-priv').textContent = p.email || '—';
-}
+    async function renderProfileDetails(params) {
+        showPage('page-profile');
+        
+        const id = params.get('id');
+        if (!id) {
+            window.location.hash = '#browse';
+            return;
+        }
 
-async function prepareEditForm() {
-    const p = await window.API.getProfileById(state.currentUserId);
+        try {
+            const p = await window.API.getUserById(id, state.user.id);
+            
+            // --- ЗАПОВНЕННЯ ВІЗУАЛУ ---
+
+            document.getElementById('prof-name').textContent = p.name;
+            document.getElementById('prof-sub').textContent = 
+                `${p.age || '?'} років, ${p.gender || 'Стать не вказана'} • ${p.publicInfo?.city || 'Місто не вказано'}`;
+
+            const img = document.getElementById('prof-photo');
+            const initials = document.getElementById('prof-initials');
+            
+            if (p.publicInfo?.photo) {
+                img.src = p.publicInfo.photo;
+                img.style.display = 'block';
+                initials.style.display = 'none';
+            } else {
+                img.style.display = 'none';
+                initials.style.display = 'block';
+                initials.textContent = p.name ? p.name[0].toUpperCase() : '?';
+            }
+
+            const kwList = document.getElementById('prof-keywords');
+            kwList.innerHTML = '';
+            if (p.keywords && p.keywords.length > 0) {
+                p.keywords.forEach(word => {
+                    const span = document.createElement('span');
+                    span.className = 'chip';
+                    span.textContent = word;
+                    kwList.appendChild(span);
+                });
+            }
+
+            document.getElementById('prof-bio').textContent = p.publicInfo?.bio || 'Користувач ще не додав опис.';
+            document.getElementById('prof-goal').textContent = p.publicInfo?.goal ? `Мета: ${p.publicInfo.goal}` : '';
+
+            // 7. Приватна інформація (показується бекендом тільки якщо є MATCH)
+            const privateBox = document.getElementById('prof-private');
+            if (p.phone || p.privateEmail) {
+                privateBox.hidden = false;
+                document.getElementById('prof-phone').textContent = p.phone || '—';
+                document.getElementById('prof-email').textContent = p.privateEmail || '—';
+            } else {
+                privateBox.hidden = true;
+            }
+
+            // --- ЛОГІКА КНОПКИ ЗАПРОШЕННЯ ---
+
+            const sendBtn = document.getElementById('btn-send-invitation');
+            
+            const newBtn = sendBtn.cloneNode(true);
+            sendBtn.parentNode.replaceChild(newBtn, sendBtn);
+
+            if (p.outgoingInvitation) {
+                newBtn.textContent = 'Cancel invitation';
+                newBtn.className = 'btn-ghost';
+                newBtn.style.color = 'var(--danger)';
+                newBtn.style.borderColor = 'var(--danger)';
+
+                newBtn.onclick = async () => {
+                    if (confirm('Ви впевнені, що хочете скасувати цей запит?')) {
+                        try {
+                            await window.API.cancelInvitation(p.outgoingInvitation.id);
+                            renderProfileDetails(params);
+                        } catch (err) {
+                            alert("Не вдалося скасувати: " + err.message);
+                        }
+                    }
+                };
+            } else {
+                newBtn.textContent = 'Send invitation';
+                newBtn.className = 'btn-primary';
+                newBtn.style.color = '';
+                newBtn.style.borderColor = '';
+
+                newBtn.onclick = async () => {
+                    try {
+                        await window.API.sendInvitation({ fromId: state.user.id, toId: p.id });
+                        renderProfileDetails(params);
+                    } catch (err) {
+                        alert("Помилка надсилання: " + err.message);
+                    }
+                };
+            }
+
+            document.getElementById('btn-back-to-browse').onclick = () => {
+                window.location.hash = '#browse';
+            };
+
+        } catch (e) {
+            console.error(e);
+            alert("Помилка: " + e.message);
+            window.location.hash = '#browse';
+        }
+    }
+
+    async function renderMyProfile() {
+        showPage('page-my-profile');
+        try {
+            const p = await window.API.getUserById(state.user.id, state.user.id);
+            
+            document.getElementById('my-name').textContent = p.name;
+            
+            const subText = `${p.age || '?'} років, ${p.gender || 'Стать не вказана'} • ${p.publicInfo?.city || 'Місто не вказано'}`;
+            document.getElementById('my-sub').textContent = subText;
+
+            const img = document.getElementById('my-photo');
+            const initials = document.getElementById('my-initials');
+            
+            if (p.publicInfo?.photo) {
+                img.src = p.publicInfo.photo;
+                img.style.display = 'block';
+                initials.style.display = 'none';
+            } else {
+                img.style.display = 'none';
+                initials.style.display = 'block';
+                initials.textContent = p.name ? p.name[0].toUpperCase() : '?';
+            }
+
+            const kwList = document.getElementById('my-keywords');
+            kwList.innerHTML = '';
+            if (p.keywords && p.keywords.length > 0) {
+                p.keywords.forEach(word => {
+                    const span = document.createElement('span');
+                    span.className = 'chip';
+                    span.textContent = word;
+                    kwList.appendChild(span);
+                });
+            }
+
+            document.getElementById('my-bio').textContent = p.publicInfo?.bio || 'Ви ще не додали опис про себе.';
+            document.getElementById('my-goal-text').textContent = p.publicInfo?.goal ? `Мета: ${p.publicInfo.goal}` : '';
+
+            document.getElementById('my-phone').textContent = p.phone || '—';
+            document.getElementById('my-email-priv').textContent = p.privateEmail || '—';
+
+        } catch (e) { 
+            console.error(e);
+            alert("Помилка завантаження вашого профілю: " + e.message); 
+        }
+    }
+
+    async function renderEditProfile() {
+    showPage('page-edit-profile');
     const form = document.getElementById('form-update-profile');
     
-    form['name'].value = p.name;
-    form['age'].value = p.age;
-    form['gender'].value = p.gender;
-    form['city'].value = p.publicInfo?.city;
-    form['goal'].value = p.publicInfo?.goal;
-    form['bio'].value = p.publicInfo?.bio;
-    form['photo'].value = p.publicInfo?.photo;
-    form['phone'].value = p.phone;
-    form['email'].value = p.email;
-    form['keywords'].value = p.keywords.join(', ');
+    try {
+        const p = await window.API.getUserById(state.user.id, state.user.id);
+        
+        document.getElementById('edit-name').value = p.name || '';
+        document.getElementById('edit-age').value = p.age || '';
+        document.getElementById('edit-gender').value = p.gender || '';
+        document.getElementById('edit-city').value = p.publicInfo?.city || '';
+        document.getElementById('edit-goal').value = p.publicInfo?.goal || '';
+        document.getElementById('edit-bio').value = p.publicInfo?.bio || '';
+        document.getElementById('edit-photo').value = p.publicInfo?.photo || '';
+        document.getElementById('edit-phone').value = p.phone || '';
+        document.getElementById('edit-email-priv').value = p.privateEmail || '';
+        
+        if (p.keywords) {
+            document.getElementById('edit-keywords').value = p.keywords.join(', ');
+        }
+    } catch (e) {
+        alert("Помилка завантаження даних: " + e.message);
+    }
 }
 
-async function loadInvitations() {
-    const list = await window.API.getMyInvitations(); // Отримуємо дані з заглушки InvitationService
-    const container = document.getElementById('inv-list-received');
-    
-    container.innerHTML = list.map(inv => `
-        <div class="card" style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
-            <div>
-                <strong>${inv.senderName}</strong>
-                <p class="text-muted" style="font-size: 13px;">Статус: ${inv.status}</p>
-            </div>
-            ${inv.status === 'pending' ? '<button class="btn-primary btn-sm">Прийняти</button>' : ''}
-        </div>
-    `).join('');
-}
+    let activeInvTab = 'received'; 
 
-// ─── ОБРОБКА ПОДІЙ ───────────────────────────────────
+    async function renderInvitations() {
+        showPage('page-invitations');
+        const list = document.getElementById('inv-list');
+        list.innerHTML = '<p class="text-muted">Завантаження...</p>';
 
-document.getElementById('form-update-profile').onsubmit = async (e) => {
-    e.preventDefault();
-    const data = Object.fromEntries(new FormData(e.target));
-    await window.API.updateProfile(state.currentUserId, data);
-    alert('Профіль оновлено!');
-    location.hash = '#my-profile';
-};
+        const tabs = document.querySelectorAll('.tabs .tab');
+        tabs.forEach(tab => {
+            tab.classList.toggle('active', tab.dataset.tab === activeInvTab);
+            tab.onclick = () => {
+                activeInvTab = tab.dataset.tab;
+                renderInvitations();
+            };
+        });
 
-document.getElementById('form-send-invitation').onsubmit = async (e) => {
-    e.preventDefault();
-    const toId = document.getElementById('inv-to-id').value;
-    const res = await window.API.sendInvitation(toId);
-    if (res.error) alert(res.error);
-    else alert('Запит надіслано!');
-};
+        try {
+            const invs = await window.API.getUserInvitations(state.user.id);
+            list.innerHTML = '';
 
-document.getElementById('btn-theme').onclick = () => {
-    document.body.classList.toggle('dark-theme');
-};
+            const filtered = invs.filter(inv => {
+                const myId = Number(state.user.id);
+                if (activeInvTab === 'received') {
+                    return Number(inv.toId) === myId;
+                } else {
+                    return Number(inv.fromId) === myId;
+                }
+            });
 
-document.getElementById('btn-back-to-browse').onclick = () => {
-    location.hash = '#browse';
-};
+            if (filtered.length === 0) {
+                list.innerHTML = `<p class="text-muted">У вас поки немає ${activeInvTab === 'received' ? 'отриманих' : 'відправлених'} запитів.</p>`;
+                return;
+            }
 
-// Ініціалізація
-window.addEventListener('hashchange', router);
-window.onload = router;
+            filtered.forEach(inv => {
+                const tpl = document.getElementById('tpl-invitation').content.cloneNode(true);
+                
+                const targetName = activeInvTab === 'received' ? inv.senderName : inv.receiverName;
+                const targetAge = activeInvTab === 'received' ? inv.senderAge : inv.receiverAge;
+                const targetId = activeInvTab === 'received' ? inv.fromId : inv.toId;
+
+                const link = tpl.querySelector('.inv-link');
+                if (link) {
+                    link.href = `#profile?id=${targetId}`;
+                    link.querySelector('.inv-user-name').textContent = `${targetName || 'Unknown'}, ${targetAge || '?'}`;
+                }
+
+                const statusLabel = tpl.querySelector('.inv-status-label');
+                if (statusLabel) {
+                    statusLabel.textContent = inv.status;
+                    statusLabel.className = `inv-status-label status-${inv.status}`;
+                }
+
+                const actions = tpl.querySelector('.inv-actions');
+                const btnAccept = tpl.querySelector('.btn-accept');
+                const btnReject = tpl.querySelector('.btn-reject');
+                const btnCancel = tpl.querySelector('.btn-cancel');
+
+                if (activeInvTab === 'received') {
+                    if (btnCancel) btnCancel.remove();
+                    if (inv.status === 'pending') {
+                        btnAccept.onclick = () => updateInv(inv.id, 'accepted');
+                        btnReject.onclick = () => updateInv(inv.id, 'rejected');
+                    } else if (actions) {
+                        actions.remove();
+                    }
+                } else {
+                    if (btnAccept) btnAccept.remove();
+                    if (btnReject) btnReject.remove();
+                    if (btnCancel) {
+                        btnCancel.onclick = async () => {
+                            if (confirm('Скасувати цей запит?')) {
+                                await window.API.cancelInvitation(inv.id);
+                                renderInvitations();
+                            }
+                        };
+                    }
+                }
+
+                list.appendChild(tpl);
+            });
+        } catch (e) { 
+            console.error(e);
+            list.innerHTML = `<p class="text-danger">Помилка: ${e.message}</p>`;
+        }
+    }
+
+    async function updateInv(id, status) {
+        try {
+            await window.API.updateInvitationStatus(id, status);
+            renderInvitations();
+        } catch (e) { alert(e.message); }
+    }
+
+    // --- UI Helpers ---
+    function showPage(id) {
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('page-active'));
+        const target = document.getElementById(id);
+        if (target) {
+            target.classList.add('page-active');
+        }
+        
+        const isAuthPage = id === 'page-login' || id === 'page-register';
+        document.getElementById('sidebar').hidden = isAuthPage;
+        document.getElementById('topbar-user').hidden = isAuthPage;
+
+        if (state.user) {
+            document.getElementById('topbar-username').textContent = state.user.name;
+        }
+    }
+
+    // --- Forms ---
+
+    document.getElementById('form-login').onsubmit = async (e) => {
+        e.preventDefault();
+        const credentials = {
+            email: e.target.email.value,
+            password: e.target.password.value
+        };
+
+        try {
+            const user = await window.API.login(credentials);
+            state.user = user;
+            localStorage.setItem('user', JSON.stringify(user));
+            window.location.hash = '#browse';
+        } catch (err) {
+            alert("Помилка входу: " + err.message);
+        }
+    };
+
+    document.getElementById('form-register').onsubmit = async (e) => {
+        e.preventDefault();
+        const userData = {
+            name: e.target.username.value,
+            email: e.target.email.value,
+            password: e.target.password.value
+        };
+
+        try {
+            await window.API.register(userData);
+            alert("Реєстрація успішна! Тепер ви можете увійти.");
+            window.location.hash = '#login';
+        } catch (err) {
+            alert("Помилка реєстрації: " + err.message);
+        }
+    };
+
+    const updateForm = document.getElementById('form-update-profile');
+    if (updateForm) {
+        updateForm.onsubmit = async (e) => {
+            e.preventDefault();
+            
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData.entries());
+
+            try {
+                const updatedUser = await window.API.updateUser(state.user.id, data);
+                
+                state.user = updatedUser;
+                localStorage.setItem('user', JSON.stringify(updatedUser));
+                
+                alert("Зміни збережено успішно!");
+                window.location.hash = '#my-profile';
+            } catch (err) {
+                console.error(err);
+                alert("Не вдалося зберегти зміни: " + err.message);
+            }
+        };
+    }
+
+    document.getElementById('btn-logout').onclick = () => {
+        localStorage.removeItem('user');
+        state.user = null;
+        window.location.hash = '#login';
+    };
+
+    navigate();
+});

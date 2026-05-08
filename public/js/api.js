@@ -1,55 +1,91 @@
-// public/js/api.js
-const API_URL = '/api';
+const API_BASE = '/api';
 
 window.API = {
-    // Реєстрація (використовує CreateUserDTO на бекенді)
-    async register(email, password) {
-        const res = await fetch(`${API_URL}/users/register`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password })
+    async _fetch(url, options = {}) {
+        const res = await fetch(`${API_BASE}${url}`, {
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
         });
-        return res.json();
+
+        const data = await res.json();
+
+        if (!res.ok) {
+            throw new Error(data.error || data.message || 'Помилка сервера');
+        }
+
+        return data;
     },
 
-    // Отримання списку профілів (для сторінки Browse)
-    async getProfiles() {
-        // Оскільки у нас ще немає окремого маршруту для списку, 
-        // імітуємо отримання масиву на основі даних сервісу
-        const res = await fetch(`${API_URL}/users/profile/777`); 
-        const user = await res.json();
-        return [user];
+    // === АВТОРИЗАЦІЯ (AUTH) ===
+    async login(credentials) {
+        return this._fetch('/auth/login', {
+            method: 'POST',
+            body: JSON.stringify(credentials)
+        });
     },
 
-    // Отримання одного профілю (використовує ViewFullProfileDTO або ViewProfileDTO)
-    async getProfileById(id) {
-        const res = await fetch(`${API_URL}/users/profile/${id}`);
-        return res.json();
+    // Реєстрація
+    async register(userData) {
+        return this._fetch('/users', {
+            method: 'POST',
+            body: JSON.stringify(userData)
+        });
     },
 
-    // Оновлення профілю (використовує UpdateProfileDTO)
-    async updateProfile(id, profileData) {
-        const res = await fetch(`${API_URL}/users/profile/${id}`, {
+    // === КОРИСТУВАЧІ (USER CRUD) ===
+
+    async getUsers(excludeId) {
+        const url = excludeId ? `/users?exclude=${excludeId}` : '/users';
+        return this._fetch(url);
+    },
+
+    async getUserById(id, viewerId) {
+        const url = (viewerId !== undefined) 
+            ? `/users/${id}?viewerId=${viewerId}` 
+            : `/users/${id}`;
+            
+        return this._fetch(url);
+    },
+
+    async updateUser(id, updateData) {
+        return this._fetch(`/users/${id}`, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(profileData)
+            body: JSON.stringify(updateData)
         });
-        return res.json();
     },
 
-    // Відправка запиту (використовує CreateInvitationDTO)
-    async sendInvitation(toId) {
-        const res = await fetch(`${API_URL}/invitations`, {
+    async deleteUser(id) {
+        return this._fetch(`/users/${id}`, {
+            method: 'DELETE'
+        });
+    },
+
+    // === ЗАПРОШЕННЯ (INVITATIONS) ===
+
+    async sendInvitation(invitationData) {
+        return this._fetch('/invitations', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ toId })
+            body: JSON.stringify(invitationData)
         });
-        return res.json();
     },
 
-    // Отримання списку запрошень (використовує ViewInvitationDTO)
-    async getMyInvitations() {
-        const res = await fetch(`${API_URL}/invitations/my`);
-        return res.json();
+    async getUserInvitations(userId) {
+        return this._fetch(`/invitations/user/${userId}`);
+    },
+
+    async updateInvitationStatus(id, status) {
+        return this._fetch(`/invitations/${id}/status`, {
+            method: 'PATCH',
+            body: JSON.stringify({ status })
+        });
+    },
+
+    async cancelInvitation(id) {
+        return this._fetch(`/invitations/${id}`, {
+            method: 'DELETE'
+        });
     }
 };

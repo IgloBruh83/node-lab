@@ -1,8 +1,10 @@
 const express = require('express');
 const router = express.Router();
-const InvitationController = require('../controllers/InvitationController');
+const InvitationCtrl = require('../controllers/InvitationController');
 
-router.post('/', InvitationController.create);
-router.get('/my', InvitationController.getMyInvitations);
+router.post('/', InvitationCtrl.create);
+router.get('/user/:userId', InvitationCtrl.getUserInvitations);
+router.patch('/:id/status', InvitationCtrl.updateStatus);
+router.delete('/:id', InvitationCtrl.delete);
 
 module.exports = router;
